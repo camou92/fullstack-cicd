@@ -31,6 +31,7 @@ pipeline {
     options {
         timestamps()
         ansiColor('xterm')
+        skipDefaultCheckout(true)
     }
 
     triggers {
@@ -45,11 +46,6 @@ pipeline {
                 echo "🚀 Pipeline démarré"
                 sh 'git rev-parse --short HEAD || true'
             }
-        }
-
-        /* ================= CLEAN ================= */
-        stage('Clean') {
-            steps { cleanWs() }
         }
 
         /* ================= CHECKOUT ================= */
