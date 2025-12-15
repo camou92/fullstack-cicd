@@ -32,6 +32,7 @@ pipeline {
         timestamps()
         ansiColor('xterm')
         skipDefaultCheckout(true)
+        disableConcurrentBuilds()
     }
 
     triggers {
