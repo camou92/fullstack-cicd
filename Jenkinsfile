@@ -24,7 +24,7 @@ pipeline {
         POSTGRES_PASS = "password"
 
         /* ========= AWS ========= */
-        S3_BUCKET = "movie-postgres-backups"
+        S3_BUCKET  = "movie-postgres-backups"
         AWS_REGION = "eu-north-1"
     }
 
@@ -33,12 +33,19 @@ pipeline {
         ansiColor('xterm')
     }
 
-    /* ========= CRON : backup tous les jours à 02h ========= */
     triggers {
         cron('H 2 * * *')
     }
 
     stages {
+
+        /* ================= INIT (OBLIGATOIRE) ================= */
+        stage('Init') {
+            steps {
+                echo "🚀 Pipeline démarré"
+                sh 'git rev-parse --short HEAD || true'
+            }
+        }
 
         /* ================= CLEAN ================= */
         stage('Clean') {
@@ -58,7 +65,12 @@ pipeline {
 
         /* ================= BACKUP IMAGE ================= */
         stage('Build Backup Docker Image') {
-            when { changeset "postgres-backup/**" }
+            when {
+                anyOf {
+                    changeset "postgres-backup/**"
+                    triggeredBy 'UserIdCause'
+                }
+            }
             steps {
                 dir('postgres-backup') {
                     withCredentials([usernamePassword(
@@ -80,7 +92,12 @@ docker logout 192.168.122.48:5001
 
         /* ================= BACKEND ================= */
         stage('Build Backend & Deploy Artifact') {
-            when { changeset "movieApi/**" }
+            when {
+                anyOf {
+                    changeset "movieApi/**"
+                    triggeredBy 'UserIdCause'
+                }
+            }
             steps {
                 dir('movieApi') {
                     withCredentials([usernamePassword(
@@ -110,7 +127,12 @@ mvn deploy -s settings.xml -DskipTests
         }
 
         stage('Build & Push Backend Docker') {
-            when { changeset "movieApi/**" }
+            when {
+                anyOf {
+                    changeset "movieApi/**"
+                    triggeredBy 'UserIdCause'
+                }
+            }
             steps {
                 dir('movieApi') {
                     withCredentials([usernamePassword(
@@ -132,7 +154,12 @@ docker logout 192.168.122.48:5001
 
         /* ================= FRONTEND ================= */
         stage('Build Frontend') {
-            when { changeset "movieUi/**" }
+            when {
+                anyOf {
+                    changeset "movieUi/**"
+                    triggeredBy 'UserIdCause'
+                }
+            }
             steps {
                 dir('movieUi') {
                     sh '''
@@ -145,7 +172,12 @@ npm run build
         }
 
         stage('Build & Push Frontend Docker') {
-            when { changeset "movieUi/**" }
+            when {
+                anyOf {
+                    changeset "movieUi/**"
+                    triggeredBy 'UserIdCause'
+                }
+            }
             steps {
                 dir('movieUi') {
                     withCredentials([usernamePassword(
@@ -172,23 +204,22 @@ docker logout 192.168.122.48:5001
                     changeset "movieApi/**"
                     changeset "movieUi/**"
                     changeset "docker-compose.yml"
+                    triggeredBy 'UserIdCause'
                 }
             }
             steps {
-                dir("${DOCKER_COMPOSE_DIR}") {
-                    withCredentials([usernamePassword(
-                        credentialsId: 'nexus-cred',
-                        usernameVariable: 'DOCKER_USER',
-                        passwordVariable: 'DOCKER_PASS'
-                    )]) {
-                        sh '''
+                withCredentials([usernamePassword(
+                    credentialsId: 'nexus-cred',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh '''
 set -e
 echo "$DOCKER_PASS" | docker login 192.168.122.48:5001 -u "$DOCKER_USER" --password-stdin
 docker compose pull
 docker compose up -d
 docker logout 192.168.122.48:5001
 '''
-                    }
                 }
             }
         }
@@ -198,19 +229,12 @@ docker logout 192.168.122.48:5001
             when { triggeredBy 'TimerTrigger' }
             steps {
                 withCredentials([
-                    [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-cred'],
-                    usernamePassword(
-                        credentialsId: 'nexus-cred',
-                        usernameVariable: 'DOCKER_USER',
-                        passwordVariable: 'DOCKER_PASS'
-                    )
+                    [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-cred']
                 ]) {
                     sh '''
 set -e
 TS=$(date +%Y-%m-%d_%H-%M-%S)
 FILE=movie_app_$TS.sql
-
-echo "$DOCKER_PASS" | docker login 192.168.122.48:5001 -u "$DOCKER_USER" --password-stdin
 
 docker run --rm \
   --network spring-demo \
@@ -223,18 +247,15 @@ docker run --rm \
     pg_dump -h ${POSTGRES_HOST} -U ${POSTGRES_USER} ${POSTGRES_DB} > /tmp/$FILE &&
     aws s3 cp /tmp/$FILE s3://${S3_BUCKET}/$FILE
   "
-
-docker logout 192.168.122.48:5001
 '''
                 }
             }
         }
-
     }
 
     post {
         success {
-            echo "✅ PIPELINE OK — builds intelligents, deploy et backup maîtrisés"
+            echo "✅ PIPELINE OK — build intelligent, déploiement maîtrisé, backup sécurisé"
         }
         failure {
             echo "❌ PIPELINE KO — vérifier les logs Jenkins"
