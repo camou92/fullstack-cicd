@@ -1,0 +1,134 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: postgres-sql-movie
+    environment:
+      POSTGRES_USER: username
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: movie_app
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-movie:/var/lib/postgresql/data
+    networks:
+      - spring-demo
+    restart: unless-stopped
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: postgres-exporter
+    environment:
+      DATA_SOURCE_NAME: "postgresql://username:password@postgres:5432/movie_app?sslmode=disable"
+    ports:
+      - "9187:9187"
+    networks:
+      - spring-demo
+    depends_on:
+      - postgres
+
+  postgres-backup:
+    image: 192.168.122.48:5001/postgres-backup:1.0.0
+    networks:
+      - spring-demo
+
+  movie-back:
+    image: 192.168.122.48:5001/backend-app:latest
+    container_name: movie-back
+    environment:
+      - DB_URL=jdbc:postgresql://postgres:5432/movie_app
+    ports:
+      - "8087:8087"
+    networks:
+      - spring-demo
+    depends_on:
+      - postgres
+      - tempo
+
+  movie-front:
+    image: 192.168.122.48:5001/frontend-app:latest
+    container_name: movie-front
+    ports:
+      - "8086:80"
+    networks:
+      - spring-demo
+    depends_on:
+      - movie-back
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./alert.rules.yml:/etc/prometheus/alert.rules.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - spring-demo
+    depends_on:
+      - alertmanager
+      - postgres-exporter
+      - movie-back
+      - blackbox-exporter
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: alertmanager
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml
+    ports:
+      - "9093:9093"
+    networks:
+      - spring-demo
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+      - tempo
+      - my-loki
+    networks:
+      - spring-demo
+
+  tempo:
+    image: grafana/tempo:latest
+    container_name: tempo
+    ports:
+      - "3200:3200"
+      - "4317:4317"
+    command: ["--config.file=/etc/tempo/config.yaml"]
+    volumes:
+      - ./tempo.yaml:/etc/tempo/config.yaml
+    networks:
+      - spring-demo
+
+  my-loki:
+    image: grafana/loki:main
+    container_name: my-loki
+    command: ["-config.file=/etc/loki/local-config.yaml"]
+    ports:
+      - "3100:3100"
+    networks:
+      - spring-demo
+
+  blackbox-exporter:
+    image: prom/blackbox-exporter:latest
+    container_name: blackbox-exporter
+    ports:
+      - "9115:9115"
+    networks:
+      - spring-demo
+
+networks:
+  spring-demo:
+    driver: bridge
+
+volumes:
+  postgres-movie:
+    driver: local

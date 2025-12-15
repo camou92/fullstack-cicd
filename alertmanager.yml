@@ -1,0 +1,19 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: 'default-receiver'
+  group_wait: 10s
+  group_interval: 5m
+  repeat_interval: 1h
+
+receivers:
+  - name: 'default-receiver'
+    email_configs:
+      - to: 'cmohamed992@gmail.com'
+        from: 'camoudev092@gmail.com'
+        smarthost: 'smtp.gmail.com:587'
+        auth_username: 'camoudev092@gmail.com'
+        auth_identity: 'camoudev092@gmail.com'
+        auth_password: 'whkv lbkb ixde yztm'
+        send_resolved: true   # <-- ajoute cette ligne

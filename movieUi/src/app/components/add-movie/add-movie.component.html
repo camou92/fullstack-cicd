@@ -1,0 +1,72 @@
+<div class="min-h-screen flex items-center justify-center bg-slate-800">
+    <div class="bg-white p-8 rounded-2xl shadow-md w-full max-w-md mt-10">
+      <h2 class="text-2xl font-bold mb-8 text-blue-900 text-center">Add Movie</h2>
+      <form [formGroup]="addMovieForm" (ngSubmit)="addMovie()">
+        <div *ngIf="inlineNotification.show" class="text-red-600 mt-4 text-center">
+          {{ inlineNotification.text }}
+        </div>
+  
+        <div class="mb-4">
+          <label for="title" class="block text-gray-700">Title</label>
+          <input type="text" id="title" formControlName="title" required
+                 class="w-full px-3 py-2 border rounded focus:outline-none focus:ring focus:border-blue-300">
+          <div *ngIf="title.invalid && (title.dirty || title.touched)" class="text-red-600 mt-2">
+            <div *ngIf="title.errors?.['required']">Movie Title is required!</div>
+          </div>
+        </div>
+  
+        <div class="mb-4">
+          <label for="director" class="block text-gray-700">Director</label>
+          <input type="text" id="director" formControlName="director" required
+                 class="w-full px-3 py-2 border rounded focus:outline-none focus:ring focus:border-blue-300">
+          <div *ngIf="director.invalid && (director.dirty || director.touched)" class="text-red-600 mt-2">
+            <div *ngIf="director.errors?.['required']">Movie director is required!</div>
+          </div>
+        </div>
+  
+        <div class="mb-4">
+          <label for="studio" class="block text-gray-700">Studio</label>
+          <input type="text" id="studio" formControlName="studio" required
+                 class="w-full px-3 py-2 border rounded focus:outline-none focus:ring focus:border-blue-300">
+          <div *ngIf="studio.invalid && (studio.dirty || studio.touched)" class="text-red-600 mt-2">
+            <div *ngIf="studio.errors?.['required']">Movie studio is required.</div>
+          </div>
+        </div>
+  
+        <div class="mb-4">
+          <label for="movieCast" class="block text-gray-700">Movie Cast</label>
+          <input type="text" id="movieCast" formControlName="movieCast" required
+                 class="w-full px-3 py-2 border rounded focus:outline-none focus:ring focus:border-blue-300"
+                 placeholder="Enter movie cast comma separated">
+          <div *ngIf="movieCast.invalid && (movieCast.dirty || movieCast.touched)" class="text-red-600 mt-2">
+            <div *ngIf="movieCast.errors?.['required']">Movie Cast is required!</div>
+          </div>
+        </div>
+  
+        <div class="mb-4">
+          <label for="releaseYear" class="block text-gray-700">Release Year</label>
+          <input type="text" id="releaseYear" formControlName="releaseYear" required
+                 class="w-full px-3 py-2 border rounded focus:outline-none focus:ring focus:border-blue-300"
+                 placeholder="">
+          <div *ngIf="releaseYear.invalid && (releaseYear.dirty || releaseYear.touched)" class="text-red-600 mt-2">
+            <div *ngIf="releaseYear.errors?.['required']">Release Year is required!</div>
+          </div>
+        </div>
+  
+        <div class="mb-4">
+          <label for="file" class="block text-gray-700">Poster</label>
+          <input type="file" id="file" formControlName="poster" required
+                 (change)="onFileSelected($event)"
+                 class="w-full px-3 py-2 border rounded focus:outline-none focus:ring focus:border-blue-300">
+        </div>
+  
+        <div class="flex justify-center">
+          <button type="submit" class="w-2/4 bg-blue-900 text-white px-4 py-2 rounded hover:bg-blue-700">
+            Add Movie
+          </button>
+        </div>
+  
+      </form>
+    </div>
+  </div>
+  

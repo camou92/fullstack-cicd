@@ -1,0 +1,17 @@
+curl -XPOST http://localhost:9093/api/v2/alerts \
+-H "Content-Type: application/json" \
+-d '[{
+      "labels": {
+        "alertname": "TestAlert"
+      },
+      "annotations": {
+        "summary": "Ceci est un test",
+        "description": "Test d’Alertmanager via API v2"
+      },
+      "startsAt": "2025-12-12T04:52:00Z",
+      "endsAt": "2025-12-12T04:57:00Z"
+    }]'
+
+http://localhost:9090/targets
+
+http://localhost:9115/probe?target=http://movie-back:8087/actuator/health&module=http_2xx
