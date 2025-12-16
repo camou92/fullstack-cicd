@@ -2,7 +2,7 @@ pipeline {
 
     agent {
         docker {
-            image 'camoudock/jenkins-agent:latest'
+            image 'camoudock/agent-jenkins-stack:latest'
             args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
         }
     }
