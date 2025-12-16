@@ -1,7 +1,8 @@
 pipeline {
+
     agent {
         docker {
-            image 'camoudock/camoudock/jenkins-agent:latest'
+            image 'camoudock/jenkins-agent:latest'
             args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
         }
     }
@@ -15,7 +16,6 @@ pipeline {
 
         /* ========= GIT ========= */
         GIT_APP_REPO = "https://github.com/camou92/fullstack-cicd.git"
-        DOCKER_COMPOSE_DIR = "."
 
         /* ========= POSTGRES ========= */
         POSTGRES_HOST = "postgres"
@@ -31,37 +31,25 @@ pipeline {
     options {
         timestamps()
         ansiColor('xterm')
-        skipDefaultCheckout(true)
         disableConcurrentBuilds()
     }
 
     triggers {
-        cron('H 2 * * *')
+        cron('H 2 * * *')   // backup uniquement
     }
 
     stages {
 
-        /* ================= INIT (OBLIGATOIRE) ================= */
-        stage('Init') {
-            steps {
-                echo "🚀 Pipeline démarré"
-                sh 'git rev-parse --short HEAD || true'
-            }
-        }
-
-        /* ================= CHECKOUT ================= */
+        /* ================= CHECKOUT (OBLIGATOIRE) ================= */
         stage('Checkout') {
             steps {
-                checkout([
-                    $class: 'GitSCM',
-                    branches: [[name: '*/main']],
-                    userRemoteConfigs: [[url: "${GIT_APP_REPO}"]]
-                ])
+                checkout scm
+                sh 'git log -1 --oneline'
             }
         }
 
         /* ================= BACKUP IMAGE ================= */
-        stage('Build Backup Docker Image') {
+        stage('Build Backup Image') {
             when {
                 anyOf {
                     changeset "postgres-backup/**"
@@ -78,9 +66,9 @@ pipeline {
                         sh '''
 set -e
 docker build -t ${BACKUP_IMAGE} .
-echo "$DOCKER_PASS" | docker login 192.168.122.48:5001 -u "$DOCKER_USER" --password-stdin
+echo "$DOCKER_PASS" | docker login ${DOCKER_REPO} -u "$DOCKER_USER" --password-stdin
 docker push ${BACKUP_IMAGE}
-docker logout 192.168.122.48:5001
+docker logout ${DOCKER_REPO}
 '''
                     }
                 }
@@ -115,8 +103,7 @@ cat > settings.xml <<EOF
   </servers>
 </settings>
 EOF
-mvn clean package -DskipTests
-mvn deploy -s settings.xml -DskipTests
+mvn clean deploy -DskipTests -s settings.xml
 '''
                     }
                 }
@@ -140,9 +127,9 @@ mvn deploy -s settings.xml -DskipTests
                         sh '''
 set -e
 docker build -t ${BACKEND_IMAGE} .
-echo "$DOCKER_PASS" | docker login 192.168.122.48:5001 -u "$DOCKER_USER" --password-stdin
+echo "$DOCKER_PASS" | docker login ${DOCKER_REPO} -u "$DOCKER_USER" --password-stdin
 docker push ${BACKEND_IMAGE}
-docker logout 192.168.122.48:5001
+docker logout ${DOCKER_REPO}
 '''
                     }
                 }
@@ -150,7 +137,7 @@ docker logout 192.168.122.48:5001
         }
 
         /* ================= FRONTEND ================= */
-        stage('Build Frontend') {
+        stage('Build Frontend & Docker') {
             when {
                 anyOf {
                     changeset "movieUi/**"
@@ -164,30 +151,16 @@ set -e
 npm install
 npm run build
 '''
-                }
-            }
-        }
-
-        stage('Build & Push Frontend Docker') {
-            when {
-                anyOf {
-                    changeset "movieUi/**"
-                    triggeredBy 'UserIdCause'
-                }
-            }
-            steps {
-                dir('movieUi') {
                     withCredentials([usernamePassword(
                         credentialsId: 'nexus-cred',
                         usernameVariable: 'DOCKER_USER',
                         passwordVariable: 'DOCKER_PASS'
                     )]) {
                         sh '''
-set -e
 docker build -t ${FRONTEND_IMAGE} .
-echo "$DOCKER_PASS" | docker login 192.168.122.48:5001 -u "$DOCKER_USER" --password-stdin
+echo "$DOCKER_PASS" | docker login ${DOCKER_REPO} -u "$DOCKER_USER" --password-stdin
 docker push ${FRONTEND_IMAGE}
-docker logout 192.168.122.48:5001
+docker logout ${DOCKER_REPO}
 '''
                     }
                 }
@@ -212,10 +185,10 @@ docker logout 192.168.122.48:5001
                 )]) {
                     sh '''
 set -e
-echo "$DOCKER_PASS" | docker login 192.168.122.48:5001 -u "$DOCKER_USER" --password-stdin
+echo "$DOCKER_PASS" | docker login ${DOCKER_REPO} -u "$DOCKER_USER" --password-stdin
 docker compose pull
 docker compose up -d
-docker logout 192.168.122.48:5001
+docker logout ${DOCKER_REPO}
 '''
                 }
             }
@@ -240,7 +213,7 @@ docker run --rm \
   -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
   -e AWS_DEFAULT_REGION=${AWS_REGION} \
   ${BACKUP_IMAGE} \
-  bash -c "
+  sh -c "
     pg_dump -h ${POSTGRES_HOST} -U ${POSTGRES_USER} ${POSTGRES_DB} > /tmp/$FILE &&
     aws s3 cp /tmp/$FILE s3://${S3_BUCKET}/$FILE
   "
@@ -252,10 +225,10 @@ docker run --rm \
 
     post {
         success {
-            echo "✅ PIPELINE OK — build intelligent, déploiement maîtrisé, backup sécurisé"
+            echo "✅ PIPELINE CLASSIQUE OK"
         }
         failure {
-            echo "❌ PIPELINE KO — vérifier les logs Jenkins"
+            echo "❌ PIPELINE CLASSIQUE EN ÉCHEC"
         }
         always {
             cleanWs()
