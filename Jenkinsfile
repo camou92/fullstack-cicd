@@ -32,6 +32,7 @@ pipeline {
         timestamps()
         ansiColor('xterm')
         disableConcurrentBuilds()
+        skipDefaultCheckout(true)
     }
 
     triggers {
@@ -40,10 +41,24 @@ pipeline {
 
     stages {
 
-        /* ================= CHECKOUT (OBLIGATOIRE) ================= */
+        /* ================= INIT GIT SECURITY ================= */
+        stage('Init Git Security') {
+            steps {
+                sh '''
+set -e
+git config --global --add safe.directory "$WORKSPACE"
+'''
+            }
+        }
+
+        /* ================= CHECKOUT ================= */
         stage('Checkout') {
             steps {
-                checkout scm
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: '*/main']],
+                    userRemoteConfigs: [[url: "${GIT_APP_REPO}"]]
+                ])
                 sh 'git log -1 --oneline'
             }
         }
@@ -103,6 +118,7 @@ cat > settings.xml <<EOF
   </servers>
 </settings>
 EOF
+
 mvn clean deploy -DskipTests -s settings.xml
 '''
                     }
