@@ -2,7 +2,7 @@ pipeline {
 
     agent {
         docker {
-            image 'camoudock/agent-jenkins-stack:V3'
+            image 'camoudock/agent-jenkins-stack:V5'
             args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
         }
     }
@@ -63,7 +63,7 @@ pipeline {
                         timeout(time: 10, unit: 'MINUTES') {
                             sh '''
 set -e
-docker build --progress=plain -t ${BACKUP_IMAGE} .
+docker build -t ${BACKUP_IMAGE} .
 echo "$DOCKER_PASS" | docker login ${DOCKER_REPO} -u "$DOCKER_USER" --password-stdin
 docker push ${BACKUP_IMAGE}
 docker logout ${DOCKER_REPO}
@@ -103,7 +103,7 @@ mvn clean deploy -DskipTests -s settings.xml
 # Télécharger OTEL agent avant docker build
 curl -L -o opentelemetry-javaagent.jar https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar
 
-# Docker build --progress=plain -t ${BACKEND_IMAGE} --cache-from ${BACKEND_IMAGE} .
+# Docker build -t ${BACKEND_IMAGE} --cache-from ${BACKEND_IMAGE} .
 echo "$DOCKER_PASS" | docker login ${DOCKER_REPO} -u "$DOCKER_USER" --password-stdin
 docker push ${BACKEND_IMAGE}
 docker logout ${DOCKER_REPO}
@@ -125,7 +125,7 @@ docker logout ${DOCKER_REPO}
 set -e
 npm ci
 npm run build
-docker build --progress=plain -t ${FRONTEND_IMAGE} --cache-from ${FRONTEND_IMAGE} .
+docker build -t ${FRONTEND_IMAGE} --cache-from ${FRONTEND_IMAGE} .
 echo "$DOCKER_PASS" | docker login ${DOCKER_REPO} -u "$DOCKER_USER" --password-stdin
 docker push ${FRONTEND_IMAGE}
 docker logout ${DOCKER_REPO}
