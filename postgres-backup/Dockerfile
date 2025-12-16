@@ -1,14 +1,17 @@
-# Base image
+# Base image PostgreSQL
 FROM postgres:17
 
-# Installer awscli
-RUN apt-get update && \
-    apt-get install -y python3-pip unzip && \
-    pip3 install --no-cache-dir awscli && \
-    rm -rf /var/lib/apt/lists/*
+USER root
 
-# Entrypoint pour backup
+# Installer awscli via APT (compatible Ubuntu/Debian + PEP 668)
+RUN apt-get update && \
+    apt-get install -y \
+        awscli \
+        ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Dossier de travail pour les backups
 WORKDIR /backup
 
-# Par défaut, on peut lancer bash pour exécuter le pg_dump et S3
+# Entrypoint simple pour exécuter pg_dump + aws s3 cp
 CMD ["bash"]
