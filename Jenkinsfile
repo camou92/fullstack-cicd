@@ -1,12 +1,6 @@
 pipeline {
 
-    agent {
-        docker {
-            image 'camoudock/agent-jenkins-stack:V5'
-            args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
-            reuseNode true
-        }
-    }
+    agent { label 'docker-agent-permanent' }
 
     environment {
         /* ========= REGISTRY ========= */
@@ -34,7 +28,7 @@ pipeline {
     }
 
     triggers {
-        cron('H 2 * * *')
+        cron('H 2 * * *') // backup quotidien
     }
 
     stages {
@@ -113,6 +107,7 @@ docker logout ${DOCKER_REPO}
                         sh '''
 set -e
 
+# Maven build + déploiement
 cat > settings.xml <<EOF
 <settings>
   <servers>
@@ -127,9 +122,11 @@ EOF
 
 mvn clean deploy -DskipTests -s settings.xml
 
+# Télécharger OTEL agent
 curl -L -o opentelemetry-javaagent.jar \
 https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar
 
+# Docker build & push
 docker build -t ${BACKEND_IMAGE} .
 echo "$DOCKER_PASS" | docker login ${DOCKER_REPO} -u "$DOCKER_USER" --password-stdin
 docker push ${BACKEND_IMAGE}
@@ -242,7 +239,7 @@ if [ $NEED_BACKUP -eq 1 ]; then
       aws s3 cp /tmp/$FILE s3://${S3_BUCKET}/$FILE
     "
 else
-  echo \"Backup non nécessaire\"
+  echo "Backup non nécessaire"
 fi
 '''
                 }
@@ -256,4 +253,5 @@ fi
         failure { echo "❌ PIPELINE EN ÉCHEC" }
         always { cleanWs() }
     }
+
 }
