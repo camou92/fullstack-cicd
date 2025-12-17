@@ -217,6 +217,8 @@ docker logout ${DOCKER_REPO}
                 ]) {
                     sh '''
 set -e
+# Création réseau si inexistant
+docker network inspect spring-demo >/dev/null 2>&1 || docker network create spring-demo
 
 LATEST=$(aws s3 ls s3://${S3_BUCKET}/ | sort | tail -n 1 | awk '{print $4}')
 NEED_BACKUP=1
