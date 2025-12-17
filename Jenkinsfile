@@ -33,7 +33,7 @@ pipeline {
     }
 
     triggers {
-        cron('H 2 * * *') // backup quotidien
+        cron('H/5 * * * *') // backup quotidien
     }
 
     stages {
