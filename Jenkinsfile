@@ -15,7 +15,7 @@ pipeline {
         BACKUP_IMAGE   = "${DOCKER_REPO}/postgres-backup:1.0.0"
 
         /* ========= POSTGRES ========= */
-        POSTGRES_HOST = "postgres"
+        POSTGRES_HOST = "postgres-sql-movie"
         POSTGRES_DB   = "movie_app"
         POSTGRES_USER = "username"
         POSTGRES_PASS = "password"
@@ -33,7 +33,7 @@ pipeline {
     }
 
     triggers {
-        cron('H/5 * * * *') // backup quotidien
+        cron('H/5 * * * *') // test toutes les 5 minutes
     }
 
     stages {
@@ -217,8 +217,6 @@ docker logout ${DOCKER_REPO}
                 ]) {
                     sh '''
 set -e
-# Création réseau si inexistant
-docker network inspect spring-demo >/dev/null 2>&1 || docker network create spring-demo
 
 LATEST=$(aws s3 ls s3://${S3_BUCKET}/ | sort | tail -n 1 | awk '{print $4}')
 NEED_BACKUP=1
@@ -234,17 +232,11 @@ if [ $NEED_BACKUP -eq 1 ]; then
   TS=$(date +%Y-%m-%d_%H-%M-%S)
   FILE=movie_app_$TS.sql
 
-  docker run --rm \
-    --network spring-demo \
-    -e PGPASSWORD=${POSTGRES_PASS} \
-    -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
-    -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
-    -e AWS_DEFAULT_REGION=${AWS_REGION} \
-    ${BACKUP_IMAGE} \
-    sh -c "
-      pg_dump -h ${POSTGRES_HOST} -U ${POSTGRES_USER} ${POSTGRES_DB} > /tmp/$FILE &&
-      aws s3 cp /tmp/$FILE s3://${S3_BUCKET}/$FILE
-    "
+  # Backup via docker compose pour résoudre postgres
+  docker compose run --rm postgres-backup sh -c "
+    pg_dump -h ${POSTGRES_HOST} -U ${POSTGRES_USER} ${POSTGRES_DB} > /tmp/$FILE &&
+    aws s3 cp /tmp/$FILE s3://${S3_BUCKET}/$FILE
+  "
 else
   echo "Backup non nécessaire"
 fi

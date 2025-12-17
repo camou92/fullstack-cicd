@@ -30,6 +30,8 @@ services:
     image: 192.168.122.48:5001/postgres-backup:1.0.0
     networks:
       - spring-demo
+    depends_on:
+      - postgres
 
   movie-back:
     image: 192.168.122.48:5001/backend-app:latest
