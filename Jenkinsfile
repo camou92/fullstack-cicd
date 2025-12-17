@@ -233,9 +233,11 @@ if [ $NEED_BACKUP -eq 1 ]; then
   FILE=movie_app_$TS.sql
 
   # Backup via docker compose pour résoudre postgres
-  docker compose run --rm postgres-backup sh -c "
-    pg_dump -h ${POSTGRES_HOST} -U ${POSTGRES_USER} ${POSTGRES_DB} > /tmp/$FILE &&
-    aws s3 cp /tmp/$FILE s3://${S3_BUCKET}/$FILE
+  docker compose run --rm \
+    -e PGPASSWORD=${POSTGRES_PASS} \
+    postgres-backup sh -c "
+      pg_dump -h ${POSTGRES_HOST} -U ${POSTGRES_USER} ${POSTGRES_DB} > /tmp/$FILE &&
+      aws s3 cp /tmp/$FILE s3://${S3_BUCKET}/$FILE
   "
 else
   echo "Backup non nécessaire"
