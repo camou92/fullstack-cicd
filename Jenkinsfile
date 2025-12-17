@@ -218,24 +218,36 @@ docker logout ${DOCKER_REPO}
             sh '''
 set -e
 
-# Vérifier le dernier backup existant sur S3
+echo "🔍 Vérification du dernier backup S3..."
+
 LATEST=$(aws s3 ls s3://${S3_BUCKET}/ | sort | tail -n 1 | awk '{print $4}')
 NEED_BACKUP=1
 
-if [ ! -z "$LATEST" ]; then
-  # Remplacer '_' par ' ' pour que date -d puisse parser
-  LATEST_TS=$(echo $LATEST | sed -E 's/.*([0-9]{4}-[0-9]{2}-[0-9]{2})_([0-9]{2}-[0-9]{2}-[0-9]{2}).*/\1 \2/' | xargs date -d +%s)
+if [ -n "$LATEST" ]; then
+  echo "Dernier backup trouvé : $LATEST"
+
+  # Extraire date et heure correctement (HH:MM:SS)
+  DATE_PART=$(echo "$LATEST" | cut -d_ -f3)
+  TIME_PART=$(echo "$LATEST" | cut -d_ -f4 | sed 's/.sql//' | tr '-' ':')
+
+  LATEST_TS=$(date -d "$DATE_PART $TIME_PART" +%s)
   NOW_TS=$(date +%s)
+
   DIFF=$((NOW_TS - LATEST_TS))
+  echo "Âge du dernier backup : $DIFF secondes"
+
   # Si le dernier backup date de moins de 24h, on ne fait rien
-  [ $DIFF -lt 86400 ] && NEED_BACKUP=0
+  if [ "$DIFF" -lt 86400 ]; then
+    NEED_BACKUP=0
+  fi
 fi
 
-if [ $NEED_BACKUP -eq 1 ]; then
-  TS=$(date +%Y-%m-%d_%H-%M-%S)
-  FILE=movie_app_$TS.sql
+if [ "$NEED_BACKUP" -eq 1 ]; then
+  echo "📦 Lancement du backup PostgreSQL"
 
-  # Lancer le backup via docker compose pour que le conteneur voit PostgreSQL
+  TS=$(date +%Y-%m-%d_%H-%M-%S)
+  FILE=movie_app_${TS}.sql
+
   docker compose run --rm \
     -e PGPASSWORD=${POSTGRES_PASS} \
     -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
@@ -245,13 +257,16 @@ if [ $NEED_BACKUP -eq 1 ]; then
       pg_dump -h ${POSTGRES_HOST} -U ${POSTGRES_USER} ${POSTGRES_DB} > /tmp/$FILE &&
       aws s3 cp /tmp/$FILE s3://${S3_BUCKET}/$FILE
     "
+
+  echo "✅ Backup envoyé sur S3 : $FILE"
 else
-  echo "Backup non nécessaire"
+  echo "⏭️ Backup non nécessaire (moins de 24h)"
 fi
 '''
         }
     }
 }
+
 
     }
 
