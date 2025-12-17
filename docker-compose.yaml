@@ -90,7 +90,7 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./grafana/datasources:/etc/grafana/provisioning/datasources
+      - ./grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
     depends_on:
       - prometheus
       - tempo
