@@ -33,7 +33,7 @@ pipeline {
     }
 
     triggers {
-        cron('H/5 * * * *') // test toutes les 5 minutes
+        cron('H 2 * * *') // test toutes les 5 minutes
     }
 
     stages {
